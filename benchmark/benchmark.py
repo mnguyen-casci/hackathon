@@ -582,14 +582,23 @@ def _timed(label: str, fn):
 
 def main():
     RESULTS_DIR.mkdir(exist_ok=True)
+    sequential = "--sequential" in sys.argv
 
     # Each variant spins up its own isolated temp copy of sample-project and
     # makes an independent CLI call -- no shared mutable state -- so they're
-    # safe to run concurrently. This is I/O-bound (subprocess calls), so
-    # threads are enough; no need for multiprocessing.
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(VARIANTS)) as pool:
-        futures = {pool.submit(_timed, label, fn): label for label, fn in VARIANTS}
-        runs = [f.result() for f in concurrent.futures.as_completed(futures)]
+    # safe to run concurrently, and it's much faster (I/O-bound, so threads
+    # are enough). But concurrent mvn test invocations compete for real CPU
+    # and disk, which inflates and adds noise to wall_seconds. Token/cost/
+    # quality numbers are unaffected either way (concurrency doesn't change
+    # what happens inside any one variant's own conversation with the
+    # model) -- only use --sequential when you specifically want a clean
+    # wall_seconds column, e.g. for the numbers that go on the dashboard.
+    if sequential:
+        runs = [_timed(label, fn) for label, fn in VARIANTS]
+    else:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(VARIANTS)) as pool:
+            futures = {pool.submit(_timed, label, fn): label for label, fn in VARIANTS}
+            runs = [f.result() for f in concurrent.futures.as_completed(futures)]
 
     # Judge each fix blind, after the run itself finishes. Also independent
     # per-run, so also parallelized.

@@ -395,9 +395,16 @@
     Produced by running the bundled Claude Code CLI headlessly
     (<code>claude -p --output-format json --tools "..."</code>) against a
     fresh temp copy of the sample project per variant, on Claude Sonnet 5,
-    one run per variant, all seven run concurrently since each is fully
-    isolated. No separate Anthropic API key was used &mdash; this runs
-    against whatever account is already authenticated in Claude Code.
+    one run per variant. The harness can run all seven concurrently for
+    speed (each is fully isolated, no shared state), but these numbers are
+    from a sequential run instead: concurrent <code>mvn test</code> calls
+    compete for real CPU/disk and inflate wall-clock time with noise
+    unrelated to any context strategy, so wall time here reflects each
+    variant running alone. Token, cost, and quality figures are identical
+    either way, concurrency doesn't change what happens inside any one
+    variant's own conversation with the model. No separate Anthropic API
+    key was used &mdash; this runs against whatever account is already
+    authenticated in Claude Code.
     Quality scores come from a separate judge call on Opus (not Sonnet)
     shown only a unified diff of the fix, blind to which strategy produced
     it. RAG-lite's retrieval query is a realistic bug report with none of
