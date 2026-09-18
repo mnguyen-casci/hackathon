@@ -109,6 +109,45 @@
     margin-bottom: 10px;
   }
 
+  section.glossary {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  section.glossary h2 {
+    font-family: "Sora", system-ui, sans-serif;
+    font-size: 1.02rem;
+    margin: 0;
+  }
+  .glossary-list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px 20px;
+    margin: 0;
+  }
+  @media (max-width: 780px) {
+    .glossary-list { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 520px) {
+    .glossary-list { grid-template-columns: 1fr; }
+  }
+  .glossary-list dt {
+    font-family: "Sora", system-ui, sans-serif;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--ink-primary);
+  }
+  .glossary-list dd {
+    margin: 2px 0 0;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: var(--ink-secondary);
+  }
+
   .variant-cell {
     display: flex;
     flex-direction: column;
@@ -386,6 +425,60 @@
       cheapest path here, and it's worth showing that rather than averaging
       it away.
     </div>
+  </section>
+
+  <section class="glossary">
+    <h2>What the columns mean</h2>
+    <dl class="glossary-list">
+      <div>
+        <dt>Turns</dt>
+        <dd>How many back-and-forth trips it took with the model. One turn
+          means it answered immediately; several means it had to look
+          around, then act, then maybe look again.</dd>
+      </div>
+      <div>
+        <dt>Cache write</dt>
+        <dd>Tokens spent the first time the AI sees something in that
+          conversation, like photocopying it into memory. Costs a bit extra
+          since it's brand new.</dd>
+      </div>
+      <div>
+        <dt>Cache read</dt>
+        <dd>Tokens spent glancing back at something already photocopied
+          into memory. Much cheaper than writing it fresh.</dd>
+      </div>
+      <div>
+        <dt>Output tokens</dt>
+        <dd>The AI's own writing: its answer, its reasoning, the code it
+          produced.</dd>
+      </div>
+      <div>
+        <dt>Cost (USD)</dt>
+        <dd>The real dollar total, from how much of each token type above
+          got used (writes and fresh reads cost more per token than cache
+          reads).</dd>
+      </div>
+      <div>
+        <dt>Wall time</dt>
+        <dd>How many real-world seconds it took, measured with each
+          strategy running alone so nothing skews it.</dd>
+      </div>
+      <div>
+        <dt>Test</dt>
+        <dd>A plain yes/no: did the actual automated test suite confirm the
+          bug is really fixed?</dd>
+      </div>
+      <div>
+        <dt>Quality</dt>
+        <dd>A separate AI, acting as an independent referee who doesn't
+          know which strategy produced the fix, grades it 1-10 on
+          correctness, minimality, and code style.</dd>
+      </div>
+      <div>
+        <dt>Judge rationale</dt>
+        <dd>That referee's one-sentence explanation for the score it gave.</dd>
+      </div>
+    </dl>
   </section>
 
   <div class="table-wrap">
