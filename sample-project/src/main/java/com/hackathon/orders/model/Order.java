@@ -8,6 +8,7 @@ public class Order {
 
     private final String customerId;
     private final List<OrderItem> items = new ArrayList<>();
+    private ShippingAddress shippingAddress;
 
     public Order(String customerId) {
         this.customerId = customerId;
@@ -19,6 +20,14 @@ public class Order {
 
     public String getCustomerId() {
         return customerId;
+    }
+
+    public void setShippingAddress(ShippingAddress shippingAddress) {
+        this.shippingAddress = shippingAddress;
+    }
+
+    public ShippingAddress getShippingAddress() {
+        return shippingAddress;
     }
 
     public List<OrderItem> getItems() {

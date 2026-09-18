@@ -22,7 +22,7 @@ public class DiscountService {
     private boolean isEligibleForBulkDiscount(Order order) {
         double total = 0;
         for (OrderItem item : order.getItems()) {
-            total += item.getPrice();
+            total += item.getLineTotal();
         }
         return total > BULK_ORDER_THRESHOLD;
     }
