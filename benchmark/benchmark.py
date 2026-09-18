@@ -292,6 +292,35 @@ def run_jit_loading() -> dict:
     }
 
 
+def run_many_tools() -> dict:
+    """Counter-example for tool-schema lazy loading: identical to
+    jit-loading (same file tree, same system prompt, same task) except the
+    full default toolset is available instead of just the 5 tools actually
+    needed. Isolates the cost of describing every built-in tool's schema
+    upfront, rather than loading only what the task requires."""
+    project_dir = make_temp_copy()
+    prompt = (
+        "You are working on a Java Maven project. Here is its file tree "
+        f"(relative to the current directory):\n\n{file_tree(project_dir)}\n\n"
+        f"{TASK_RULES} Use the available tools to read whatever files you need "
+        "before editing."
+    )
+    cli_json = run_claude(
+        prompt,
+        cwd=project_dir,
+        system_prompt="You are a careful software engineer. Make the minimal correct fix.",
+        tools="default",
+    )
+    passed = run_mvn_test(project_dir)
+    shutil.rmtree(project_dir.parent, ignore_errors=True)
+    return {
+        "variant": "many-tools",
+        "fixed_file": None,
+        "test_passed": passed,
+        **summarize_usage(cli_json),
+    }
+
+
 def run_dependency_graph() -> dict:
     project_dir = make_temp_copy()
     prompt = (
@@ -347,6 +376,7 @@ def main():
     for label, fn in [
         ("naive", run_naive),
         ("rag-lite", run_rag_lite),
+        ("many-tools", run_many_tools),
         ("jit-loading", run_jit_loading),
         ("dependency-graph", run_dependency_graph),
         ("context-file", run_context_file),
