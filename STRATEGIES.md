@@ -31,10 +31,18 @@ Index the codebase by function/class chunk; retrieve only the relevant chunk
 for a given question instead of loading whole files. Stronger for large
 codebases, more build effort than JIT loading for a small demo repo.
 
+- **Reference:** none found. General practice in the RAG space, not tied to
+  a specific paper or write-up surfaced during this project's research.
+
 ### 4. Tool-schema lazy loading
 Only load full tool JSON schemas on demand (cheap keyword match against the
 task) rather than upfront, when an agent has access to many tools. Not
 applicable here since the demo only uses one or two tools.
+
+- **Reference:** reporting on Claude Code's tool lazy-loading (via a Martin
+  Fowler / morphllm write-up on the "1M token wall") states it cuts context
+  by 95% by discovering and loading tool definitions on demand instead of
+  front-loading every MCP tool's schema upfront.
 
 ### 5. Context pruning / compaction over a session
 Periodically summarize session history and drop stale file contents as a
@@ -47,6 +55,9 @@ multi-step task progresses, instead of letting context grow monotonically.
 Replace raw file dumps with a compressed call/dependency graph (which
 classes/files call which) for "explain/debug this feature" style tasks,
 letting the model reason about structure without reading everything.
+
+- **Reference:** none found. Not tied to a specific paper or write-up
+  surfaced during this project's research.
 
 ## Supporting research (framing / motivation)
 
