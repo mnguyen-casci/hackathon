@@ -31,13 +31,15 @@ SAMPLE_PROJECT = REPO_ROOT / "sample-project"
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
 
 FAILING_TEST_OUTPUT = (
-    "org.opentest4j.AssertionFailedError: Order subtotal of 150.0 should "
-    "trigger the bulk discount and total 135.0 ==> expected: <135.0> but was: <150.0>"
+    "org.opentest4j.AssertionFailedError: PLATINUM customers should get a "
+    "10% loyalty discount, not 5% ==> expected: <50.49> but was: <52.99>"
 )
 
 TASK_RULES = (
     "`mvn test` currently fails with:\n"
     f"{FAILING_TEST_OUTPUT}\n\n"
+    "(The other test in the same file, bulkOrderWithLowUnitPriceButHighQuantityGetsDiscount, "
+    "already passes -- don't break it.)\n\n"
     "Find the bug causing this failure and fix it. Do not modify the test file "
     "(OrderProcessorTest.java)."
 )
@@ -48,8 +50,15 @@ SOURCE_FILES = [
     "src/main/java/com/hackathon/orders/Main.java",
     "src/main/java/com/hackathon/orders/model/Order.java",
     "src/main/java/com/hackathon/orders/model/OrderItem.java",
+    "src/main/java/com/hackathon/orders/model/Customer.java",
+    "src/main/java/com/hackathon/orders/model/LoyaltyTier.java",
+    "src/main/java/com/hackathon/orders/model/ShippingAddress.java",
     "src/main/java/com/hackathon/orders/service/DiscountService.java",
     "src/main/java/com/hackathon/orders/service/InventoryService.java",
+    "src/main/java/com/hackathon/orders/service/CustomerService.java",
+    "src/main/java/com/hackathon/orders/service/LoyaltyService.java",
+    "src/main/java/com/hackathon/orders/service/ShippingService.java",
+    "src/main/java/com/hackathon/orders/service/PaymentService.java",
     "src/main/java/com/hackathon/orders/service/OrderProcessor.java",
     "src/test/java/com/hackathon/orders/OrderProcessorTest.java",
 ]
