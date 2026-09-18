@@ -16,6 +16,7 @@ account is already authenticated in this Claude Code install.
 
 from __future__ import annotations
 
+import difflib
 import glob
 import json
 import re
@@ -150,7 +151,7 @@ def retrieve_relevant_files(project_dir: Path, query: str, top_k: int = 5) -> li
     return [rel for _, rel in scored[:top_k]]
 
 
-def run_claude(prompt: str, cwd: Path, system_prompt: str, tools: str):
+def run_claude(prompt: str, cwd: Path, system_prompt: str, tools: str, extra_args: list[str] | None = None):
     cmd = [
         CLAUDE_BIN,
         "-p",
@@ -166,6 +167,8 @@ def run_claude(prompt: str, cwd: Path, system_prompt: str, tools: str):
         "--permission-mode",
         "acceptEdits",
     ]
+    if extra_args:
+        cmd += extra_args
 
     result = subprocess.run(
         cmd, cwd=cwd, capture_output=True, text=True, timeout=600
@@ -188,6 +191,49 @@ def apply_naive_fix(project_dir: Path, response_text: str) -> str | None:
         return None
     target.write_text(content)
     return rel_path
+
+
+def compute_diff(original_dir: Path, modified_dir: Path) -> str:
+    diffs = []
+    for rel in SOURCE_FILES:
+        orig_path, mod_path = original_dir / rel, modified_dir / rel
+        if not orig_path.exists() or not mod_path.exists():
+            continue
+        orig_lines = orig_path.read_text().splitlines(keepends=True)
+        mod_lines = mod_path.read_text().splitlines(keepends=True)
+        if orig_lines != mod_lines:
+            diffs.append(
+                "".join(difflib.unified_diff(orig_lines, mod_lines, fromfile=rel, tofile=rel))
+            )
+    return "\n".join(diffs) if diffs else "(no changes detected)"
+
+
+JUDGE_SYSTEM_PROMPT = (
+    "You are an impartial code reviewer scoring a bug fix. You do not know "
+    "which method or tool produced it, judge only the diff itself. Score it "
+    "1-10 on: (a) correctness -- does it fix the root cause rather than "
+    "patch a symptom, (b) minimality -- does it change only what's "
+    "necessary, (c) code quality -- readable, consistent with the "
+    "surrounding style. Respond with ONLY:\n"
+    "SCORE: <integer 1-10>\n"
+    "RATIONALE: <one sentence>"
+)
+
+
+def judge_fix(diff_text: str) -> dict:
+    prompt = f"Here is a unified diff of a bug fix:\n\n{diff_text}\n\nScore it."
+    cli_json = run_claude(
+        prompt, cwd=REPO_ROOT, system_prompt=JUDGE_SYSTEM_PROMPT, tools=""
+    )
+    result_text = cli_json.get("result", "")
+    score_match = re.search(r"SCORE:\s*(\d+)", result_text)
+    rationale_match = re.search(r"RATIONALE:\s*(.+)", result_text, re.DOTALL)
+    return {
+        "quality_score": int(score_match.group(1)) if score_match else None,
+        "quality_rationale": (
+            rationale_match.group(1).strip() if rationale_match else result_text.strip()
+        ),
+    }
 
 
 def run_mvn_test(project_dir: Path) -> bool:
@@ -226,11 +272,13 @@ def run_naive() -> dict:
     )
     fixed_file = apply_naive_fix(project_dir, cli_json.get("result", ""))
     passed = run_mvn_test(project_dir) if fixed_file else False
+    diff_text = compute_diff(SAMPLE_PROJECT, project_dir)
     shutil.rmtree(project_dir.parent, ignore_errors=True)
     return {
         "variant": "naive",
         "fixed_file": fixed_file,
         "test_passed": passed,
+        "diff": diff_text,
         **summarize_usage(cli_json),
     }
 
@@ -258,12 +306,14 @@ def run_rag_lite() -> dict:
     )
     fixed_file = apply_naive_fix(project_dir, cli_json.get("result", ""))
     passed = run_mvn_test(project_dir) if fixed_file else False
+    diff_text = compute_diff(SAMPLE_PROJECT, project_dir)
     shutil.rmtree(project_dir.parent, ignore_errors=True)
     return {
         "variant": "rag-lite",
         "fixed_file": fixed_file,
         "retrieved_files": retrieved,
         "test_passed": passed,
+        "diff": diff_text,
         **summarize_usage(cli_json),
     }
 
@@ -283,11 +333,44 @@ def run_jit_loading() -> dict:
         tools="Read,Glob,Grep,Edit,Write",
     )
     passed = run_mvn_test(project_dir)
+    diff_text = compute_diff(SAMPLE_PROJECT, project_dir)
     shutil.rmtree(project_dir.parent, ignore_errors=True)
     return {
         "variant": "jit-loading",
         "fixed_file": None,
         "test_passed": passed,
+        "diff": diff_text,
+        **summarize_usage(cli_json),
+    }
+
+
+def run_compaction() -> dict:
+    """Same task/tools as jit-loading, but with a forced low auto-compact
+    window (100k tokens, the CLI's minimum) so mid-session compaction
+    actually has a chance to trigger on this task, rather than relying on
+    the default 1M-token window that this small a task would never reach."""
+    project_dir = make_temp_copy()
+    prompt = (
+        "You are working on a Java Maven project. Here is its file tree "
+        f"(relative to the current directory):\n\n{file_tree(project_dir)}\n\n"
+        f"{TASK_RULES} Use the available tools to read whatever files you need "
+        "before editing."
+    )
+    cli_json = run_claude(
+        prompt,
+        cwd=project_dir,
+        system_prompt="You are a careful software engineer. Make the minimal correct fix.",
+        tools="Read,Glob,Grep,Edit,Write",
+        extra_args=["--autocompact", "100000"],
+    )
+    passed = run_mvn_test(project_dir)
+    diff_text = compute_diff(SAMPLE_PROJECT, project_dir)
+    shutil.rmtree(project_dir.parent, ignore_errors=True)
+    return {
+        "variant": "compaction",
+        "fixed_file": None,
+        "test_passed": passed,
+        "diff": diff_text,
         **summarize_usage(cli_json),
     }
 
@@ -312,11 +395,13 @@ def run_many_tools() -> dict:
         tools="default",
     )
     passed = run_mvn_test(project_dir)
+    diff_text = compute_diff(SAMPLE_PROJECT, project_dir)
     shutil.rmtree(project_dir.parent, ignore_errors=True)
     return {
         "variant": "many-tools",
         "fixed_file": None,
         "test_passed": passed,
+        "diff": diff_text,
         **summarize_usage(cli_json),
     }
 
@@ -336,11 +421,13 @@ def run_dependency_graph() -> dict:
         tools="Read,Glob,Grep,Edit,Write",
     )
     passed = run_mvn_test(project_dir)
+    diff_text = compute_diff(SAMPLE_PROJECT, project_dir)
     shutil.rmtree(project_dir.parent, ignore_errors=True)
     return {
         "variant": "dependency-graph",
         "fixed_file": None,
         "test_passed": passed,
+        "diff": diff_text,
         **summarize_usage(cli_json),
     }
 
@@ -361,11 +448,13 @@ def run_context_file() -> dict:
         tools="Read,Glob,Grep,Edit,Write",
     )
     passed = run_mvn_test(project_dir)
+    diff_text = compute_diff(SAMPLE_PROJECT, project_dir)
     shutil.rmtree(project_dir.parent, ignore_errors=True)
     return {
         "variant": "context-file",
         "fixed_file": None,
         "test_passed": passed,
+        "diff": diff_text,
         **summarize_usage(cli_json),
     }
 
