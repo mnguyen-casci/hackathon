@@ -106,6 +106,33 @@ def dump_files(project_dir: Path) -> str:
     return "\n\n".join(parts)
 
 
+RAG_QUERY = (
+    "platinumCustomerGetsTenPercentLoyaltyDiscount PLATINUM customers should "
+    "get a 10% loyalty discount, not 5%"
+)
+
+
+def retrieve_relevant_files(project_dir: Path, query: str, top_k: int = 5) -> list[str]:
+    """Keyword-overlap retrieval: no embeddings, just shared-token count
+    between the query (the failing test's name + assertion message) and
+    each file's content. Deliberately simple -- this is the "lite" in
+    RAG-lite."""
+
+    def tokenize(text: str) -> set[str]:
+        return set(re.findall(r"[a-zA-Z][a-zA-Z0-9]{2,}", text.lower()))
+
+    query_terms = tokenize(query)
+    scored = []
+    for rel in SOURCE_FILES:
+        path = project_dir / rel
+        if not path.exists():
+            continue
+        score = len(query_terms & tokenize(path.read_text()))
+        scored.append((score, rel))
+    scored.sort(key=lambda pair: (-pair[0], pair[1]))
+    return [rel for _, rel in scored[:top_k]]
+
+
 def run_claude(prompt: str, cwd: Path, system_prompt: str, tools: str):
     cmd = [
         CLAUDE_BIN,
@@ -191,6 +218,39 @@ def run_naive() -> dict:
     }
 
 
+def run_rag_lite() -> dict:
+    project_dir = make_temp_copy()
+    retrieved = retrieve_relevant_files(project_dir, RAG_QUERY, top_k=5)
+    dumped = "\n\n".join(
+        f"--- {rel} ---\n{(project_dir / rel).read_text()}" for rel in retrieved
+    )
+    prompt = (
+        "You are working on a small Java Maven project. A retrieval step "
+        f"selected the {len(retrieved)} files judged most relevant to the "
+        f"failing test below, out of {len(SOURCE_FILES)} files in the project; "
+        f"only those are shown here.\n\n{dumped}\n\n{TASK_RULES}\n\n"
+        "Respond with ONLY the following, no other text:\n"
+        "FILE: <path to the file you changed, relative to the project root>\n"
+        "```java\n<the complete corrected contents of that file>\n```"
+    )
+    cli_json = run_claude(
+        prompt,
+        cwd=project_dir,
+        system_prompt="You are a precise software engineer. Follow the output format exactly.",
+        tools="",
+    )
+    fixed_file = apply_naive_fix(project_dir, cli_json.get("result", ""))
+    passed = run_mvn_test(project_dir) if fixed_file else False
+    shutil.rmtree(project_dir.parent, ignore_errors=True)
+    return {
+        "variant": "rag-lite",
+        "fixed_file": fixed_file,
+        "retrieved_files": retrieved,
+        "test_passed": passed,
+        **summarize_usage(cli_json),
+    }
+
+
 def run_jit_loading() -> dict:
     project_dir = make_temp_copy()
     prompt = (
@@ -245,6 +305,7 @@ def main():
     runs = []
     for label, fn in [
         ("naive", run_naive),
+        ("rag-lite", run_rag_lite),
         ("jit-loading", run_jit_loading),
         ("context-file", run_context_file),
     ]:
