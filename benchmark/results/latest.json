@@ -1,0 +1,38 @@
+[
+  {
+    "variant": "naive",
+    "fixed_file": "src/main/java/com/hackathon/orders/service/DiscountService.java",
+    "test_passed": true,
+    "input_tokens": 2,
+    "cache_creation_input_tokens": 5247,
+    "cache_read_input_tokens": 0,
+    "output_tokens": 348,
+    "total_cost_usd": 0.028428000000000002,
+    "num_turns": 1,
+    "wall_seconds": 6.2
+  },
+  {
+    "variant": "jit-loading",
+    "fixed_file": null,
+    "test_passed": true,
+    "input_tokens": 6,
+    "cache_creation_input_tokens": 39795,
+    "cache_read_input_tokens": 63044,
+    "output_tokens": 956,
+    "total_cost_usd": 0.1827108,
+    "num_turns": 3,
+    "wall_seconds": 18.3
+  },
+  {
+    "variant": "context-file",
+    "fixed_file": null,
+    "test_passed": true,
+    "input_tokens": 6,
+    "cache_creation_input_tokens": 7222,
+    "cache_read_input_tokens": 128074,
+    "output_tokens": 940,
+    "total_cost_usd": 0.0652698,
+    "num_turns": 4,
+    "wall_seconds": 16.9
+  }
+]

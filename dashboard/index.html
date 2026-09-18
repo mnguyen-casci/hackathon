@@ -1,0 +1,530 @@
+<title>Context Ledger</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --page-plane: #f9f9f7;
+    --ink-primary: #0b0b0b;
+    --ink-secondary: #52514e;
+    --ink-muted: #898781;
+    --grid: #e1e0d9;
+    --baseline: #c3c2b7;
+    --border: rgba(11, 11, 11, 0.10);
+    --series-naive: #2a78d6;
+    --series-jit: #eb6834;
+    --series-context: #1baf7a;
+    --status-good: #0ca30c;
+    --status-good-bg: rgba(12, 163, 12, 0.10);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --surface-1: #1a1a19;
+      --page-plane: #0d0d0d;
+      --ink-primary: #ffffff;
+      --ink-secondary: #c3c2b7;
+      --ink-muted: #898781;
+      --grid: #2c2c2a;
+      --baseline: #383835;
+      --border: rgba(255, 255, 255, 0.10);
+      --series-naive: #3987e5;
+      --series-jit: #d95926;
+      --series-context: #199e70;
+      --status-good: #0ca30c;
+      --status-good-bg: rgba(12, 163, 12, 0.16);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-1: #1a1a19;
+    --page-plane: #0d0d0d;
+    --ink-primary: #ffffff;
+    --ink-secondary: #c3c2b7;
+    --ink-muted: #898781;
+    --grid: #2c2c2a;
+    --baseline: #383835;
+    --border: rgba(255, 255, 255, 0.10);
+    --series-naive: #3987e5;
+    --series-jit: #d95926;
+    --series-context: #199e70;
+    --status-good: #0ca30c;
+    --status-good-bg: rgba(12, 163, 12, 0.16);
+  }
+
+  @font-face {
+    font-family: "Sora";
+    src: local("Sora");
+  }
+
+  body {
+    background: var(--page-plane);
+    color: var(--ink-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding-inline: 16px;
+    padding-block: 32px;
+  }
+
+  .wrap {
+    max-width: 980px;
+    margin-inline: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+  }
+
+  .mono {
+    font-family: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  header h1 {
+    font-family: "Sora", system-ui, sans-serif;
+    font-size: clamp(1.7rem, 3.4vw, 2.3rem);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0 0 8px;
+    text-wrap: balance;
+  }
+
+  header p.lede {
+    margin: 0;
+    max-width: 62ch;
+    color: var(--ink-secondary);
+    font-size: 1.02rem;
+    line-height: 1.55;
+  }
+
+  header .eyebrow {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-bottom: 10px;
+  }
+
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  @media (max-width: 640px) {
+    .stat-row { grid-template-columns: 1fr; }
+  }
+
+  .stat-tile {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .stat-tile .label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+  .stat-tile .value {
+    font-family: "Sora", system-ui, sans-serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .stat-tile .sub {
+    font-size: 0.84rem;
+    color: var(--ink-secondary);
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    width: fit-content;
+    font-size: 0.76rem;
+    font-weight: 600;
+    padding: 3px 9px 3px 7px;
+    border-radius: 999px;
+    background: var(--status-good-bg);
+    color: var(--status-good);
+  }
+  .pill::before { content: "●"; font-size: 0.6rem; }
+
+  .panels {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  @media (max-width: 780px) {
+    .panels { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 18px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .panel h2 {
+    font-family: "Sora", system-ui, sans-serif;
+    font-size: 0.98rem;
+    font-weight: 700;
+    margin: 0;
+  }
+  .panel .panel-sub {
+    font-size: 0.78rem;
+    color: var(--ink-muted);
+    margin-top: -6px;
+  }
+  .panel svg { width: 100%; height: auto; overflow: visible; }
+  .panel .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    font-size: 0.74rem;
+    color: var(--ink-secondary);
+  }
+  .legend .swatch {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .legend .dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 2px;
+    display: inline-block;
+  }
+
+  .bar-value-label {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
+    fill: var(--ink-primary);
+  }
+  .bar-cat-label {
+    font-size: 11px;
+    fill: var(--ink-secondary);
+  }
+  .grid-line { stroke: var(--grid); stroke-width: 1; }
+  .baseline-line { stroke: var(--baseline); stroke-width: 1; }
+
+  .tooltip-target { cursor: pointer; }
+
+  section.narrative {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  section.narrative h2 {
+    font-family: "Sora", system-ui, sans-serif;
+    font-size: 1.05rem;
+    margin: 0;
+  }
+  section.narrative p {
+    max-width: 68ch;
+    line-height: 1.6;
+    color: var(--ink-secondary);
+    margin: 0;
+    font-size: 0.94rem;
+  }
+  section.narrative p strong { color: var(--ink-primary); }
+  section.narrative .callout {
+    border-left: 3px solid var(--series-jit);
+    padding: 10px 14px;
+    background: color-mix(in oklab, var(--series-jit) 8%, transparent);
+    border-radius: 0 8px 8px 0;
+    font-size: 0.9rem;
+    color: var(--ink-primary);
+    max-width: 68ch;
+  }
+
+  .table-wrap {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 4px;
+    overflow-x: auto;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.86rem;
+    min-width: 620px;
+  }
+  th, td {
+    text-align: right;
+    padding: 10px 14px;
+    white-space: nowrap;
+  }
+  th:first-child, td:first-child { text-align: left; }
+  thead th {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    border-bottom: 1px solid var(--grid);
+  }
+  tbody td { border-bottom: 1px solid var(--grid); color: var(--ink-secondary); }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody td:first-child { color: var(--ink-primary); font-weight: 600; }
+  tbody td.mono { color: var(--ink-primary); }
+
+  footer {
+    font-size: 0.82rem;
+    color: var(--ink-muted);
+    line-height: 1.6;
+    max-width: 68ch;
+    padding-bottom: 8px;
+  }
+  footer code {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    background: var(--grid);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 0.82em;
+  }
+
+  #load-error {
+    color: var(--series-jit);
+    font-size: 0.9rem;
+  }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Context optimization benchmark</span>
+    <h1>Context Ledger</h1>
+    <p class="lede">
+      Same bug, same model, three ways of feeding it context. A one-line pricing
+      bug in a small Java order-processing service was fixed by Claude Sonnet 5
+      three separate times &mdash; once with every file dumped into the prompt,
+      once given only a file tree and tools to explore, and once given a
+      hand-written architecture summary instead of a generic prompt.
+    </p>
+  </header>
+
+  <div class="stat-row" id="stat-row"></div>
+
+  <div class="panels">
+    <div class="panel">
+      <h2>Cost per run</h2>
+      <p class="panel-sub">Total cost, USD (list price)</p>
+      <svg id="chart-cost" viewBox="0 0 300 220" role="img" aria-label="Cost per run in USD by variant"></svg>
+    </div>
+    <div class="panel">
+      <h2>Context tokens</h2>
+      <p class="panel-sub">Cache write vs. cache read vs. fresh</p>
+      <svg id="chart-tokens" viewBox="0 0 300 220" role="img" aria-label="Token breakdown by variant"></svg>
+      <div class="legend">
+        <span class="swatch"><span class="dot" style="background:var(--ink-primary)"></span>cache write</span>
+        <span class="swatch"><span class="dot" style="background:var(--ink-muted)"></span>cache read</span>
+        <span class="swatch"><span class="dot" style="background:var(--grid)"></span>fresh in/out</span>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Agent turns</h2>
+      <p class="panel-sub">Model round-trips to reach a fix</p>
+      <svg id="chart-turns" viewBox="0 0 300 220" role="img" aria-label="Number of turns by variant"></svg>
+    </div>
+  </div>
+
+  <section class="narrative">
+    <h2>Why the "optimized" strategies cost more here</h2>
+    <p>
+      All three variants correctly diagnosed and fixed the bug (<code class="mono">DiscountService</code>
+      summed unit price instead of price&times;quantity), and all three left
+      <code class="mono">mvn test</code> passing. But on <strong>this one small task</strong>,
+      dumping every file into a single prompt was the cheapest option &mdash; not the
+      tool-based strategies research and practice usually recommend.
+    </p>
+    <p>
+      The reason is turns, not tokens. Naive answers in one shot: no exploration,
+      no back-and-forth. JIT-loading and the context-file variant both spend
+      multiple turns reading files and applying edits, and <strong>every turn
+      re-sends the growing conversation</strong>. Cache reads are cheap per token,
+      but they're not free, and cache <em>writes</em> (new context introduced mid-session)
+      are billed at a premium. JIT-loading wrote more fresh cache across its turns
+      than context-file did, which is why it ended up the most expensive variant
+      here despite moving fewer total tokens.
+    </p>
+    <div class="callout">
+      This doesn't undo the case for context engineering &mdash; it bounds it. Naive
+      dumping scales linearly with codebase size and eventually stops fitting in
+      context at all; a hand-written context file is written once and reused across
+      every future session. The crossover point just isn't visible on a 6-file demo
+      project with a single-shot task.
+    </div>
+  </section>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Variant</th>
+          <th>Turns</th>
+          <th>Cache write</th>
+          <th>Cache read</th>
+          <th>Output tok.</th>
+          <th>Cost (USD)</th>
+          <th>Wall time</th>
+          <th>Test</th>
+        </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+  </div>
+
+  <footer>
+    Produced by running the bundled Claude Code CLI headlessly
+    (<code>claude -p --output-format json --tools "..."</code>) against a fresh
+    copy of the sample project for each variant, on Claude Sonnet 5, one run per
+    variant. No separate Anthropic API key was used &mdash; this runs against
+    whatever account is already authenticated in Claude Code. Full methodology
+    and the sample project live alongside this benchmark's source.
+  </footer>
+</div>
+
+<script>
+(function () {
+  const VARIANT_META = {
+    "naive": { label: "Naive", color: "var(--series-naive)" },
+    "jit-loading": { label: "JIT-loading", color: "var(--series-jit)" },
+    "context-file": { label: "Context-file", color: "var(--series-context)" },
+  };
+  const ORDER = ["naive", "jit-loading", "context-file"];
+
+  function fmtUsd(v) { return "$" + v.toFixed(3); }
+  function fmtInt(v) { return v.toLocaleString("en-US"); }
+
+  function computedColor(varRef, fallback) {
+    const el = document.createElement("div");
+    el.style.color = varRef;
+    document.body.appendChild(el);
+    const c = getComputedStyle(el).color;
+    document.body.removeChild(el);
+    return c || fallback;
+  }
+
+  function barChart(svg, data, valueFn, opts) {
+    opts = opts || {};
+    const W = 300, H = 220;
+    const padTop = 24, padBottom = 34, padSide = 14;
+    const plotW = W - padSide * 2;
+    const plotH = H - padTop - padBottom;
+    const n = data.length;
+    const gap = 18;
+    const barW = (plotW - gap * (n - 1)) / n;
+    const maxVal = Math.max(...data.map(valueFn)) * 1.18 || 1;
+
+    let svgParts = [];
+    // gridlines at 0/50/100%
+    [0, 0.5, 1].forEach(function (f) {
+      const y = padTop + plotH * (1 - f);
+      svgParts.push('<line class="grid-line" x1="' + padSide + '" x2="' + (W - padSide) + '" y1="' + y + '" y2="' + y + '"/>');
+    });
+
+    data.forEach(function (d, i) {
+      const x = padSide + i * (barW + gap);
+      const val = valueFn(d);
+      const h = (val / maxVal) * plotH;
+      const y = padTop + plotH - h;
+      const meta = VARIANT_META[d.variant] || { label: d.variant, color: "var(--ink-muted)" };
+
+      if (opts.stacked) {
+        let cursorY = padTop + plotH;
+        opts.stacked.forEach(function (seg) {
+          const segVal = seg.fn(d);
+          const segH = (segVal / maxVal) * plotH;
+          cursorY -= segH;
+          svgParts.push('<rect class="tooltip-target" x="' + x + '" y="' + cursorY + '" width="' + barW + '" height="' + Math.max(segH, 0) + '" fill="' + seg.color + '" rx="2">' +
+            '<title>' + meta.label + ' — ' + seg.label + ': ' + fmtInt(segVal) + ' tok</title></rect>');
+        });
+        svgParts.push('<text class="bar-value-label" x="' + (x + barW / 2) + '" y="' + (y - 8) + '" text-anchor="middle">' + opts.labelFn(d) + '</text>');
+      } else {
+        svgParts.push('<rect class="tooltip-target" x="' + x + '" y="' + y + '" width="' + barW + '" height="' + Math.max(h, 0) + '" fill="' + meta.color + '" rx="3">' +
+          '<title>' + meta.label + ': ' + opts.labelFn(d) + '</title></rect>');
+        svgParts.push('<text class="bar-value-label" x="' + (x + barW / 2) + '" y="' + (y - 8) + '" text-anchor="middle">' + opts.labelFn(d) + '</text>');
+      }
+
+      svgParts.push('<text class="bar-cat-label" x="' + (x + barW / 2) + '" y="' + (H - padBottom + 16) + '" text-anchor="middle">' + meta.label + '</text>');
+    });
+
+    svgParts.push('<line class="baseline-line" x1="' + padSide + '" x2="' + (W - padSide) + '" y1="' + (padTop + plotH) + '" y2="' + (padTop + plotH) + '"/>');
+    svg.innerHTML = svgParts.join("");
+  }
+
+  function render(data) {
+    const ordered = ORDER.map(function (v) { return data.find(function (d) { return d.variant === v; }); }).filter(Boolean);
+
+    // stat tiles
+    const cheapest = ordered.reduce(function (a, b) { return a.total_cost_usd < b.total_cost_usd ? a : b; });
+    const allPassed = ordered.every(function (d) { return d.test_passed; });
+    const statRow = document.getElementById("stat-row");
+    statRow.innerHTML = [
+      '<div class="stat-tile"><span class="label">Cheapest run</span><span class="value mono">' + VARIANT_META[cheapest.variant].label + '</span><span class="sub">' + fmtUsd(cheapest.total_cost_usd) + ' total cost</span></div>',
+      '<div class="stat-tile"><span class="label">Correctness</span><span class="value">' + (allPassed ? "3 / 3" : ordered.filter(function(d){return d.test_passed;}).length + " / 3") + '</span><span class="pill">' + (allPassed ? "all variants fixed the bug" : "check details") + '</span></div>',
+      '<div class="stat-tile"><span class="label">Cost spread</span><span class="value mono">' + (Math.max(...ordered.map(function(d){return d.total_cost_usd;})) / Math.min(...ordered.map(function(d){return d.total_cost_usd;}))).toFixed(1) + '&times;</span><span class="sub">most vs. least expensive run</span></div>',
+    ].join("");
+
+    // cost chart
+    barChart(document.getElementById("chart-cost"), ordered, function (d) { return d.total_cost_usd; }, {
+      labelFn: function (d) { return fmtUsd(d.total_cost_usd); },
+    });
+
+    // tokens chart (stacked)
+    const gridStyle = getComputedStyle(document.documentElement);
+    barChart(document.getElementById("chart-tokens"), ordered, null, {
+      stacked: [
+        { fn: function (d) { return d.cache_creation_input_tokens; }, color: "var(--ink-primary)", label: "cache write" },
+        { fn: function (d) { return d.cache_read_input_tokens; }, color: "var(--ink-muted)", label: "cache read" },
+        { fn: function (d) { return d.input_tokens + d.output_tokens; }, color: "var(--grid)", label: "fresh in/out" },
+      ],
+      labelFn: function (d) {
+        const total = d.cache_creation_input_tokens + d.cache_read_input_tokens + d.input_tokens + d.output_tokens;
+        return fmtInt(total);
+      },
+    });
+
+    // turns chart
+    barChart(document.getElementById("chart-turns"), ordered, function (d) { return d.num_turns; }, {
+      labelFn: function (d) { return String(d.num_turns); },
+    });
+
+    // table
+    document.getElementById("table-body").innerHTML = ordered.map(function (d) {
+      return "<tr>" +
+        "<td>" + VARIANT_META[d.variant].label + "</td>" +
+        '<td class="mono">' + d.num_turns + "</td>" +
+        '<td class="mono">' + fmtInt(d.cache_creation_input_tokens) + "</td>" +
+        '<td class="mono">' + fmtInt(d.cache_read_input_tokens) + "</td>" +
+        '<td class="mono">' + fmtInt(d.output_tokens) + "</td>" +
+        '<td class="mono">' + fmtUsd(d.total_cost_usd) + "</td>" +
+        '<td class="mono">' + d.wall_seconds.toFixed(1) + "s</td>" +
+        "<td>" + (d.test_passed ? '<span class="pill">passed</span>' : "failed") + "</td>" +
+        "</tr>";
+    }).join("");
+  }
+
+  fetch("./results.json")
+    .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(render)
+    .catch(function (err) {
+      document.getElementById("stat-row").innerHTML = '<p id="load-error">Could not load results.json: ' + err.message + "</p>";
+    });
+})();
+</script>
