@@ -73,4 +73,24 @@ class OrderProcessorTest {
         assertEquals(50.49, result.getTotal(), 0.001,
                 "PLATINUM customers should get a 10% loyalty discount, not 5%");
     }
+
+    @Test
+    void grandTotalMatchesExactPipelineComputation() {
+        InventoryService inventoryService = new InventoryService();
+        inventoryService.setStock("WIDGET-1", 100);
+
+        Order order = new Order("cust-precise");
+        order.addItem(new OrderItem("WIDGET-1", 122.23, 1));
+
+        OrderProcessor processor = new OrderProcessor(
+                inventoryService,
+                new DiscountService(),
+                new CustomerService(),
+                new LoyaltyService(),
+                new ShippingService());
+        OrderProcessor.OrderResult result = processor.processOrder(order);
+
+        assertTrue(result.isAccepted());
+        assertEquals(115.50, result.getTotal(), 0.001);
+    }
 }

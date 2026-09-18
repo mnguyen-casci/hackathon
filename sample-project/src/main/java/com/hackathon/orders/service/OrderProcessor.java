@@ -2,6 +2,7 @@ package com.hackathon.orders.service;
 
 import com.hackathon.orders.model.Customer;
 import com.hackathon.orders.model.Order;
+import com.hackathon.orders.util.CurrencyUtil;
 
 public class OrderProcessor {
 
@@ -36,7 +37,7 @@ public class OrderProcessor {
         double shippingCost = shippingService.calculateShippingCost(order);
         double grandTotal = afterLoyaltyDiscount + shippingCost;
 
-        return OrderResult.accepted(grandTotal);
+        return OrderResult.accepted(CurrencyUtil.round(grandTotal));
     }
 
     public static class OrderResult {
