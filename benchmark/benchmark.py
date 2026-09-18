@@ -2,12 +2,22 @@
 """
 Context-optimization benchmark harness.
 
-Runs the same bug-fix task against the sample Java project three ways:
-  - naive:        every relevant file dumped verbatim into the prompt, no tools
-  - jit-loading:  a bare file tree + Read/Glob/Grep/Edit/Write tools, agent
-                  decides what to load
-  - context-file: same tools as jit-loading, plus a hand-built CLAUDE.md
-                  as the system prompt instead of a generic one
+Runs the same bug-fix task against the sample Java project seven ways:
+  - naive:            every relevant file dumped verbatim into the prompt, no tools
+  - rag-lite:         keyword-retrieval picks the top 5 relevant files, no tools
+  - many-tools:       jit-loading's file tree, but with the full default toolset
+                      (counter-example for tool-schema lazy loading)
+  - jit-loading:      a bare file tree + Read/Glob/Grep/Edit/Write tools, agent
+                      decides what to load
+  - dependency-graph: a hand-written call graph as the system prompt + tools
+  - context-file:     a hand-built CLAUDE.md as the system prompt + tools
+  - compaction:       jit-loading's tools, with --autocompact forced to its
+                      minimum (100k tokens) so mid-session compaction has a
+                      chance to trigger on this task
+
+All variants run concurrently (each uses its own isolated temp copy of the
+project, so there's no shared state), then a separate blind judge call
+scores each variant's diff on correctness/minimality/code quality.
 
 Uses the Claude Code CLI binary in headless mode (`-p --output-format json`)
 so no separate Anthropic API key is needed -- it runs against whatever
@@ -16,6 +26,7 @@ account is already authenticated in this Claude Code install.
 
 from __future__ import annotations
 
+import concurrent.futures
 import difflib
 import glob
 import json
@@ -459,35 +470,63 @@ def run_context_file() -> dict:
     }
 
 
+VARIANTS = [
+    ("naive", run_naive),
+    ("rag-lite", run_rag_lite),
+    ("many-tools", run_many_tools),
+    ("jit-loading", run_jit_loading),
+    ("dependency-graph", run_dependency_graph),
+    ("context-file", run_context_file),
+    ("compaction", run_compaction),
+]
+
+
+def _timed(label: str, fn):
+    print(f"Running variant: {label} ...")
+    t0 = time.time()
+    r = fn()
+    r["wall_seconds"] = round(time.time() - t0, 1)
+    print(f"  -> {label} done in {r['wall_seconds']}s")
+    return r
+
+
 def main():
     RESULTS_DIR.mkdir(exist_ok=True)
-    runs = []
-    for label, fn in [
-        ("naive", run_naive),
-        ("rag-lite", run_rag_lite),
-        ("many-tools", run_many_tools),
-        ("jit-loading", run_jit_loading),
-        ("dependency-graph", run_dependency_graph),
-        ("context-file", run_context_file),
-    ]:
-        print(f"Running variant: {label} ...")
-        t0 = time.time()
-        r = fn()
-        r["wall_seconds"] = round(time.time() - t0, 1)
-        runs.append(r)
-        print(f"  -> {r}")
+
+    # Each variant spins up its own isolated temp copy of sample-project and
+    # makes an independent CLI call -- no shared mutable state -- so they're
+    # safe to run concurrently. This is I/O-bound (subprocess calls), so
+    # threads are enough; no need for multiprocessing.
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(VARIANTS)) as pool:
+        futures = {pool.submit(_timed, label, fn): label for label, fn in VARIANTS}
+        runs = [f.result() for f in concurrent.futures.as_completed(futures)]
+
+    # Judge each fix blind, after the run itself finishes. Also independent
+    # per-run, so also parallelized.
+    print("\nScoring fixes with the quality judge ...")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(runs)) as pool:
+        judged = {pool.submit(judge_fix, r["diff"]): r for r in runs}
+        for future in concurrent.futures.as_completed(judged):
+            judged[future].update(future.result())
+
+    order = {label: i for i, (label, _) in enumerate(VARIANTS)}
+    runs.sort(key=lambda r: order[r["variant"]])
 
     out_path = RESULTS_DIR / f"run_{int(time.time())}.json"
     out_path.write_text(json.dumps(runs, indent=2))
 
     print("\n=== Summary ===")
-    header = f"{'variant':14} {'input_tok':>10} {'cache_create':>12} {'output_tok':>10} {'cost_usd':>9} {'turns':>6} {'pass':>5}"
+    header = (
+        f"{'variant':16} {'input_tok':>10} {'cache_create':>12} {'output_tok':>10} "
+        f"{'cost_usd':>9} {'turns':>6} {'pass':>5} {'quality':>7}"
+    )
     print(header)
     for r in runs:
         total_input = r["input_tokens"] + r["cache_creation_input_tokens"] + r["cache_read_input_tokens"]
         print(
-            f"{r['variant']:14} {total_input:>10} {r['cache_creation_input_tokens']:>12} "
-            f"{r['output_tokens']:>10} {r['total_cost_usd']:>9.4f} {r['num_turns']:>6} {str(r['test_passed']):>5}"
+            f"{r['variant']:16} {total_input:>10} {r['cache_creation_input_tokens']:>12} "
+            f"{r['output_tokens']:>10} {r['total_cost_usd']:>9.4f} {r['num_turns']:>6} "
+            f"{str(r['test_passed']):>5} {str(r['quality_score']):>7}"
         )
     print(f"\nFull results written to {out_path}")
 
