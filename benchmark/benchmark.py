@@ -106,6 +106,23 @@ def dump_files(project_dir: Path) -> str:
     return "\n\n".join(parts)
 
 
+DEPENDENCY_GRAPH = """Call graph (who constructs / calls whom):
+
+Main -> OrderProcessor, InventoryService, DiscountService, CustomerService, LoyaltyService, ShippingService
+OrderProcessor -> InventoryService, DiscountService, CustomerService, LoyaltyService, ShippingService
+DiscountService -> Order, OrderItem
+InventoryService -> Order, OrderItem
+CustomerService -> Customer, LoyaltyTier
+LoyaltyService -> Customer, LoyaltyTier
+ShippingService -> Order, ShippingAddress
+Order -> OrderItem, ShippingAddress
+PaymentService -> (standalone; not called by OrderProcessor or anything else)
+
+OrderProcessor.processOrder pipeline order: inventory check -> bulk discount
+(DiscountService) -> loyalty discount (CustomerService + LoyaltyService) ->
+shipping cost (ShippingService).
+"""
+
 RAG_QUERY = (
     "platinumCustomerGetsTenPercentLoyaltyDiscount PLATINUM customers should "
     "get a 10% loyalty discount, not 5%"
@@ -275,6 +292,30 @@ def run_jit_loading() -> dict:
     }
 
 
+def run_dependency_graph() -> dict:
+    project_dir = make_temp_copy()
+    prompt = (
+        "You are working on a Java Maven project. Here is its file tree "
+        f"(relative to the current directory):\n\n{file_tree(project_dir)}\n\n"
+        f"{TASK_RULES} Use the available tools to read whatever files you need "
+        "before editing."
+    )
+    cli_json = run_claude(
+        prompt,
+        cwd=project_dir,
+        system_prompt=DEPENDENCY_GRAPH,
+        tools="Read,Glob,Grep,Edit,Write",
+    )
+    passed = run_mvn_test(project_dir)
+    shutil.rmtree(project_dir.parent, ignore_errors=True)
+    return {
+        "variant": "dependency-graph",
+        "fixed_file": None,
+        "test_passed": passed,
+        **summarize_usage(cli_json),
+    }
+
+
 def run_context_file() -> dict:
     project_dir = make_temp_copy()
     claude_md = (project_dir / "CLAUDE.md").read_text()
@@ -307,6 +348,7 @@ def main():
         ("naive", run_naive),
         ("rag-lite", run_rag_lite),
         ("jit-loading", run_jit_loading),
+        ("dependency-graph", run_dependency_graph),
         ("context-file", run_context_file),
     ]:
         print(f"Running variant: {label} ...")
