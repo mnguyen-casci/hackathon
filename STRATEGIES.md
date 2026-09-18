@@ -135,6 +135,42 @@ results land in `benchmark/results/`, and copying a run over
 `benchmark/results/latest.json` updates the published dashboard without
 needing to rebuild it (the dashboard fetches that file directly).
 
+## Stress test: RAG-lite's failure mode
+
+The main benchmark's bug is inherently easy for keyword retrieval: a bug
+report about "loyalty" and "discounts" naturally overlaps with a file
+called `LoyaltyService`. To test retrieval honestly rather than only on its
+best case, `benchmark/rag_stress_test.py` adds a second, harder bug on the
+same codebase: a one-line rounding bug (`Math.floor` instead of proper
+rounding) in a new `CurrencyUtil` class. The failing assertion is just two
+numbers (`expected: <115.5> but was: <115.49>`), no descriptive words
+connecting the symptom to the file, and the bug report used for retrieval
+("finance flagged a batch of totals that don't quite match...") shares no
+vocabulary with `CurrencyUtil`/`round`/`floor` either. (It patches a temp
+copy at runtime to fix the main bug and introduce this one, so the actual
+repo source and the main benchmark's published results are untouched.)
+
+Result: `CurrencyUtil.java` ranked dead last in retrieval (score 1 out of a
+possible ~5, tied with several others), nowhere near the top 5 that get
+included. Running the three most relevant variants against this bug:
+
+| Variant | Fixed file | Test passed | Output tokens | Cost | Wall time |
+|---|---|---|---|---|---|
+| naive | `CurrencyUtil.java` (correct) | ✅ | 611 | $0.049 | 9.4s |
+| rag-lite | `DiscountService.java` (wrong) | ❌ | 41,023 | $0.436 | 412.2s |
+| jit-loading | (found it via exploration) | ✅ | 1,400 | $0.089 | 19.0s |
+
+RAG-lite didn't just fail quietly, it failed expensively: with the actual
+buggy file never shown to it, the model spent an enormous amount of output
+reasoning trying to reverse-engineer the bug from files that didn't contain
+it, landed on a plausible but wrong fix, and cost roughly 9x naive while
+being wrong. Naive (sees everything) and jit-loading (can explore beyond
+whatever the retrieval step decided) both still found the real bug. This is
+the honest tradeoff retrieval-based strategies carry: fast and cheap when
+the query and the bug's vocabulary line up, but silently worse than doing
+nothing clever at all when they don't, and worse than plain exploration
+either way.
+
 ## Key finding
 
 On this single, self-contained bug-fix task, RAG-lite was both the cheapest

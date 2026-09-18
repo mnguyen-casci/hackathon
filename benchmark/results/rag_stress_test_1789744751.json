@@ -1,0 +1,46 @@
+[
+  {
+    "variant": "naive",
+    "fixed_file": "src/main/java/com/hackathon/orders/util/CurrencyUtil.java",
+    "test_passed": true,
+    "input_tokens": 2,
+    "cache_creation_input_tokens": 9131,
+    "cache_read_input_tokens": 0,
+    "output_tokens": 611,
+    "total_cost_usd": 0.049309000000000006,
+    "num_turns": 1,
+    "wall_seconds": 9.4
+  },
+  {
+    "variant": "rag-lite",
+    "fixed_file": "src/main/java/com/hackathon/orders/service/DiscountService.java",
+    "retrieved_files": [
+      "src/test/java/com/hackathon/orders/OrderProcessorTest.java",
+      "README.md",
+      "src/main/java/com/hackathon/orders/service/LoyaltyService.java",
+      "src/main/java/com/hackathon/orders/Main.java",
+      "src/main/java/com/hackathon/orders/model/Order.java"
+    ],
+    "found_buggy_file_in_retrieval": false,
+    "test_passed": false,
+    "input_tokens": 2,
+    "cache_creation_input_tokens": 5512,
+    "cache_read_input_tokens": 0,
+    "output_tokens": 41023,
+    "total_cost_usd": 0.436141,
+    "num_turns": 1,
+    "wall_seconds": 412.2
+  },
+  {
+    "variant": "jit-loading",
+    "fixed_file": null,
+    "test_passed": true,
+    "input_tokens": 6,
+    "cache_creation_input_tokens": 11804,
+    "cache_read_input_tokens": 131002,
+    "output_tokens": 1400,
+    "total_cost_usd": 0.0889424,
+    "num_turns": 8,
+    "wall_seconds": 19.0
+  }
+]
