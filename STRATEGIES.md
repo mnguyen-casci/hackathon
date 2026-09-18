@@ -11,9 +11,12 @@ the [dashboard](https://claude.ai/artifact/LF3GVEzEWiypYVJnmUq8Zq) and in
 ### 1. Structured context file (CLAUDE.md / AGENTS.md pattern)
 A single root file summarizing architecture, conventions, build/test
 commands, and key entry points, so the agent doesn't rediscover the codebase
-from scratch every session. `sample-project/CLAUDE.md` used as the system
-prompt for the `context-file` variant, paired with Read/Glob/Grep/Edit/Write
-tools.
+from scratch every session. The `context-file` variant uses
+`generate_claude_md()`, a small script that pulls each class's Javadoc
+comment and public method signatures by scanning the source text (no real
+Java parser), as the system prompt, paired with Read/Glob/Grep/Edit/Write
+tools. Deliberately not hand-written, to test realistic tooling output
+rather than a curated best case.
 
 - **Reference:** Anthropic, "Effective context engineering for AI agents";
   "On the Impact of AGENTS.md Files on the Efficiency of AI Coding Agents" (2026)
@@ -28,9 +31,13 @@ the specific files it decides it needs.
 
 ### 3. Retrieval over inclusion (RAG-lite for code)
 Chunks the codebase at file granularity and scores each file by keyword
-overlap against the failing test's name + assertion message (no embeddings
--- that's the "lite"), feeding only the top 5 files to a single-shot,
-no-tools call. Implemented as the `rag-lite` variant.
+overlap against a query (no embeddings -- that's the "lite"), feeding only
+the top 5 files to a single-shot, no-tools call. Implemented as the
+`rag-lite` variant. The query is a realistic, plain-language bug report
+("a few customers said their order total looked wrong...") rather than the
+failing test's own assertion text, so it doesn't contain the buggy code's
+exact vocabulary (no "PLATINUM," "loyalty," etc.) -- it still surfaced
+`LoyaltyService.java` through ordinary domain-word overlap.
 
 - **Reference:** none found. General practice in the RAG space, not tied to
   a specific paper or write-up surfaced during this project's research.
@@ -39,8 +46,13 @@ no-tools call. Implemented as the `rag-lite` variant.
 Only load full tool JSON schemas on demand rather than upfront, when an
 agent has access to many tools. Tested via a `many-tools` variant: identical
 task/file-tree/prompt to `jit-loading`, but with the full default toolset
-enabled instead of the 5 tools actually needed -- `jit-loading` itself
-already represents the "lazy" side of this comparison.
+described (`--tools default`) instead of the 5 tools actually needed --
+`jit-loading` itself already represents the "lazy" side of this comparison.
+The heavier/behavior-changing tools (Bash, web access, subagents) are
+explicitly denied via `--disallowedTools`, forcing the same effective
+5-tool behavior as `jit-loading` so the comparison isolates the cost of
+describing unused schemas from the cost of the agent behaving differently
+with more capabilities available.
 
 - **Reference:** reporting on Claude Code's tool lazy-loading (via a Martin
   Fowler / morphllm write-up on the "1M token wall") states it cuts context
@@ -71,8 +83,15 @@ but forces `--autocompact 100000` (the CLI's minimum), since the default
 Replace raw file dumps with a compressed call/dependency graph (which
 classes/files call which) instead of prose or a full dump, letting the
 model reason about structure without reading everything. Implemented as the
-`dependency-graph` variant: a hand-written call graph as the system prompt,
-paired with the same tools as `jit-loading` and `context-file`.
+`dependency-graph` variant: `generate_dependency_graph()` scans each file's
+text for occurrences of every other class's name (no real Java parser, so
+it catches same-package references that don't need an import statement,
+which an import-only scan would miss) and builds the graph from that,
+paired with the same tools as `jit-loading` and `context-file`. Also
+deliberately mechanical rather than hand-curated -- it picked up a false
+`PaymentService -> OrderProcessor` edge purely from a code comment
+mentioning "the OrderProcessor pipeline" in prose, a realistic limitation
+of textual scanning rather than true static analysis.
 
 - **Reference:** none found. Not tied to a specific paper or write-up
   surfaced during this project's research.
@@ -108,8 +127,8 @@ strategies above. Each variant:
 3. Is checked for correctness via `mvn test` (objective pass/fail, no LLM
    grading needed for that part)
 4. Has its fix captured as a unified diff and scored blind (no variant name
-   attached) by a separate judge call, 1-10 on correctness, minimality, and
-   code quality
+   attached) by a separate judge call on Opus, not Sonnet (the model being
+   tested), 1-10 on correctness, minimality, and code quality
 
 Implemented in `benchmark/benchmark.py`. Run it with `python3 benchmark.py`;
 results land in `benchmark/results/`, and copying a run over
@@ -119,14 +138,16 @@ needing to rebuild it (the dashboard fetches that file directly).
 ## Key finding
 
 On this single, self-contained bug-fix task, RAG-lite was both the cheapest
-correct fix and the only strategy that beat the naive baseline outright.
-Every tool-based strategy (jit-loading, dependency-graph, context-file,
-compaction) landed in a similar, higher cost band than naive or RAG-lite,
-because each spends multiple turns exploring and every turn re-sends the
-growing conversation; cache reads are cheap per token but not free.
-`many-tools` was the clear worst case, same task as `jit-loading` but with
-the full default toolset available, isolating the cost of describing every
-tool's schema upfront. All seven fixes scored 8/10 or higher on the blind
-quality judge, so none of this reflects a correctness trade-off, it's a
-genuine cost/turns finding worth presenting as-is rather than smoothing
-over.
+correct fix ($0.028) and the only strategy that beat the naive baseline
+($0.045) outright, and it held up under a realistic, non-leading query, not
+just a favorable one. Every tool-based strategy (jit-loading,
+dependency-graph, context-file, compaction) landed in a similar cost band
+($0.061-$0.064), higher than naive or RAG-lite, because each spends
+multiple turns exploring and every turn re-sends the growing conversation;
+cache reads are cheap per token but not free. `many-tools` cost more still
+($0.085), and with the schema-only isolation in place, that ~1.4x gap over
+`jit-loading` is now honestly attributable to describing unused tool
+schemas, not to the agent behaving differently with more tools available.
+All seven fixes scored 8/10 or higher on a separate, tougher Opus judge, so
+none of this reflects a correctness trade-off, it's a genuine cost/turns
+finding worth presenting as-is rather than smoothing over.
