@@ -109,55 +109,21 @@
     margin-bottom: 10px;
   }
 
-  section.analogy {
-    background: var(--surface-1);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 22px 24px;
+  .variant-cell {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 2px;
   }
-  section.analogy h2 {
-    font-family: "Sora", system-ui, sans-serif;
-    font-size: 1.05rem;
-    margin: 0;
-  }
-  section.analogy .setup {
-    max-width: 72ch;
-    line-height: 1.6;
-    color: var(--ink-secondary);
-    margin: 0;
-    font-size: 0.94rem;
-  }
-  .analogy-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-  }
-  @media (max-width: 700px) {
-    .analogy-grid { grid-template-columns: 1fr; }
-  }
-  .analogy-card {
-    border-left: 3px solid var(--accent, var(--ink-muted));
-    background: var(--page-plane);
-    border-radius: 0 8px 8px 0;
-    padding: 10px 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-  }
-  .analogy-card .analogy-tag {
-    font-family: "Sora", system-ui, sans-serif;
-    font-size: 0.82rem;
-    font-weight: 700;
+  .variant-cell .variant-name {
+    font-weight: 600;
     color: var(--ink-primary);
   }
-  .analogy-card p {
-    margin: 0;
-    font-size: 0.84rem;
-    line-height: 1.5;
-    color: var(--ink-secondary);
+  .variant-cell .variant-analogy {
+    font-weight: 400;
+    font-style: italic;
+    font-size: 0.78rem;
+    color: var(--ink-muted);
+    white-space: normal;
   }
 
   .stat-row {
@@ -292,7 +258,7 @@
   }
   tbody td { border-bottom: 1px solid var(--grid); color: var(--ink-secondary); }
   tbody tr:last-child td { border-bottom: none; }
-  tbody td:first-child { color: var(--ink-primary); font-weight: 600; }
+  tbody td:first-child { color: var(--ink-primary); font-weight: 600; white-space: normal; max-width: 200px; }
   tbody td.mono { color: var(--ink-primary); }
   tbody td.rationale { text-align: left; color: var(--ink-secondary); white-space: normal; max-width: 260px; font-size: 0.8rem; }
 
@@ -422,60 +388,6 @@
     </div>
   </section>
 
-  <section class="analogy">
-    <h2>The seven approaches, in plain terms</h2>
-    <p class="setup">
-      Picture hiring a consultant to fix a billing error in a building
-      they've never set foot in before. Each strategy below is a different
-      way of briefing them before they start &mdash; match the accent color
-      to the variant name in the table underneath.
-    </p>
-    <div class="analogy-grid">
-      <div class="analogy-card" style="--accent: var(--s1)">
-        <span class="analogy-tag">Naive</span>
-        <p>Hand them every folder from every filing cabinet in the building
-          and say "read all of this, then fix it." Thorough, but slow and
-          expensive.</p>
-      </div>
-      <div class="analogy-card" style="--accent: var(--s2)">
-        <span class="analogy-tag">RAG-lite</span>
-        <p>Do a quick keyword search through the filing system first, then
-          hand them only the folders that came up. Fast and cheap &mdash;
-          as long as the search terms actually match what's in the right
-          folder.</p>
-      </div>
-      <div class="analogy-card" style="--accent: var(--s3)">
-        <span class="analogy-tag">Many-tools</span>
-        <p>Hand them a truck full of every tool imaginable &mdash; wrenches,
-          ladders, gardening shears &mdash; even though the job only needs a
-          screwdriver. Just sorting through the gear slows them down.</p>
-      </div>
-      <div class="analogy-card" style="--accent: var(--s4)">
-        <span class="analogy-tag">JIT-loading</span>
-        <p>Give them a building directory and a key, and let them walk
-          around opening whatever cabinets they think are relevant, as they
-          go.</p>
-      </div>
-      <div class="analogy-card" style="--accent: var(--s5)">
-        <span class="analogy-tag">Dependency-graph</span>
-        <p>Instead of a floor plan, give them an org chart: "Billing talks
-          to Accounts, which talks to Customer Records." A map of
-          relationships, not just room names.</p>
-      </div>
-      <div class="analogy-card" style="--accent: var(--s6)">
-        <span class="analogy-tag">Context-file</span>
-        <p>Give them an employee handbook: how the company's organized, who
-          does what, house conventions. More like onboarding than a map.</p>
-      </div>
-      <div class="analogy-card" style="--accent: var(--s7)">
-        <span class="analogy-tag">Compaction</span>
-        <p>Partway through, their notebook of notes gets too thick to carry,
-          so they stop, rewrite it into a shorter summary, and keep going
-          with that instead.</p>
-      </div>
-    </div>
-  </section>
-
   <div class="table-wrap">
     <table>
       <thead>
@@ -528,14 +440,17 @@
 
 <script>
 (function () {
+  // Analogy: hiring a consultant to fix a billing error in a building
+  // they've never set foot in before -- each variant is a different way
+  // of briefing them before they start.
   const VARIANT_META = {
-    "naive": { label: "Naive", color: "var(--s1)" },
-    "rag-lite": { label: "RAG-lite", color: "var(--s2)" },
-    "many-tools": { label: "Many-tools", color: "var(--s3)" },
-    "jit-loading": { label: "JIT-loading", color: "var(--s4)" },
-    "dependency-graph": { label: "Dep-graph", color: "var(--s5)" },
-    "context-file": { label: "Context-file", color: "var(--s6)" },
-    "compaction": { label: "Compaction", color: "var(--s7)" },
+    "naive": { label: "Naive", color: "var(--s1)", analogy: "hands over every filing cabinet in the building" },
+    "rag-lite": { label: "RAG-lite", color: "var(--s2)", analogy: "quick keyword search first, hands over just the matching folders" },
+    "many-tools": { label: "Many-tools", color: "var(--s3)", analogy: "hands them a truck of every tool imaginable, not just a screwdriver" },
+    "jit-loading": { label: "JIT-loading", color: "var(--s4)", analogy: "a directory and a key, let them explore themselves" },
+    "dependency-graph": { label: "Dep-graph", color: "var(--s5)", analogy: "an org chart of who talks to whom, not just a floor plan" },
+    "context-file": { label: "Context-file", color: "var(--s6)", analogy: "an employee handbook instead of a generic briefing" },
+    "compaction": { label: "Compaction", color: "var(--s7)", analogy: "notes get too thick, so they're rewritten into a shorter summary" },
   };
   const ORDER = ["naive", "rag-lite", "many-tools", "jit-loading", "dependency-graph", "context-file", "compaction"];
 
@@ -634,8 +549,10 @@
     });
 
     document.getElementById("table-body").innerHTML = ordered.map(function (d) {
+      const meta = VARIANT_META[d.variant];
       return "<tr>" +
-        "<td>" + VARIANT_META[d.variant].label + "</td>" +
+        '<td><div class="variant-cell"><span class="variant-name">' + meta.label +
+          '</span><span class="variant-analogy">' + meta.analogy + '</span></div></td>' +
         '<td class="mono">' + d.num_turns + "</td>" +
         '<td class="mono">' + fmtInt(d.cache_creation_input_tokens) + "</td>" +
         '<td class="mono">' + fmtInt(d.cache_read_input_tokens) + "</td>" +
