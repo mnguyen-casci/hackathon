@@ -109,6 +109,57 @@
     margin-bottom: 10px;
   }
 
+  section.analogy {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  section.analogy h2 {
+    font-family: "Sora", system-ui, sans-serif;
+    font-size: 1.05rem;
+    margin: 0;
+  }
+  section.analogy .setup {
+    max-width: 72ch;
+    line-height: 1.6;
+    color: var(--ink-secondary);
+    margin: 0;
+    font-size: 0.94rem;
+  }
+  .analogy-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  @media (max-width: 700px) {
+    .analogy-grid { grid-template-columns: 1fr; }
+  }
+  .analogy-card {
+    border-left: 3px solid var(--accent, var(--ink-muted));
+    background: var(--page-plane);
+    border-radius: 0 8px 8px 0;
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .analogy-card .analogy-tag {
+    font-family: "Sora", system-ui, sans-serif;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--ink-primary);
+  }
+  .analogy-card p {
+    margin: 0;
+    font-size: 0.84rem;
+    line-height: 1.5;
+    color: var(--ink-secondary);
+  }
+
   .stat-row {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -282,6 +333,59 @@
       not Sonnet, to avoid a model marking its own homework).
     </p>
   </header>
+
+  <section class="analogy">
+    <h2>The seven approaches, in plain terms</h2>
+    <p class="setup">
+      Picture hiring a consultant to fix a billing error in a building
+      they've never set foot in before. Each strategy is a different way of
+      briefing them before they start.
+    </p>
+    <div class="analogy-grid">
+      <div class="analogy-card" style="--accent: var(--s1)">
+        <span class="analogy-tag">Naive</span>
+        <p>Hand them every folder from every filing cabinet in the building
+          and say "read all of this, then fix it." Thorough, but slow and
+          expensive.</p>
+      </div>
+      <div class="analogy-card" style="--accent: var(--s2)">
+        <span class="analogy-tag">RAG-lite</span>
+        <p>Do a quick keyword search through the filing system first, then
+          hand them only the folders that came up. Fast and cheap &mdash;
+          as long as the search terms actually match what's in the right
+          folder.</p>
+      </div>
+      <div class="analogy-card" style="--accent: var(--s3)">
+        <span class="analogy-tag">Many-tools</span>
+        <p>Hand them a truck full of every tool imaginable &mdash; wrenches,
+          ladders, gardening shears &mdash; even though the job only needs a
+          screwdriver. Just sorting through the gear slows them down.</p>
+      </div>
+      <div class="analogy-card" style="--accent: var(--s4)">
+        <span class="analogy-tag">JIT-loading</span>
+        <p>Give them a building directory and a key, and let them walk
+          around opening whatever cabinets they think are relevant, as they
+          go.</p>
+      </div>
+      <div class="analogy-card" style="--accent: var(--s5)">
+        <span class="analogy-tag">Dependency-graph</span>
+        <p>Instead of a floor plan, give them an org chart: "Billing talks
+          to Accounts, which talks to Customer Records." A map of
+          relationships, not just room names.</p>
+      </div>
+      <div class="analogy-card" style="--accent: var(--s6)">
+        <span class="analogy-tag">Context-file</span>
+        <p>Give them an employee handbook: how the company's organized, who
+          does what, house conventions. More like onboarding than a map.</p>
+      </div>
+      <div class="analogy-card" style="--accent: var(--s7)">
+        <span class="analogy-tag">Compaction</span>
+        <p>Partway through, their notebook of notes gets too thick to carry,
+          so they stop, rewrite it into a shorter summary, and keep going
+          with that instead.</p>
+      </div>
+    </div>
+  </section>
 
   <div class="stat-row" id="stat-row"></div>
 
