@@ -56,9 +56,16 @@ but forces `--autocompact 100000` (the CLI's minimum), since the default
 
 - **Reference:** Anthropic Cookbook, "Automatic context compaction for
   agentic workflows"
-- **Caveat:** the CLI's JSON output has no explicit signal for whether a
-  compaction event actually fired mid-session. This variant is honestly
-  "configured for the lowest possible threshold," not "confirmed triggered."
+- **Confirmed via `--debug --debug-file`:** the CLI logs explicit
+  `autocompact: tokens=... level=... effectiveWindow=80000` events per turn
+  (`effectiveWindow` is 80% of the configured `--autocompact` value, i.e.
+  the warning threshold). A diagnostic run reached `level=warn` by the
+  third turn but the task finished before crossing the full threshold, so
+  compaction did **not** actually fire in that run. The task's natural
+  token growth (roughly 80,000-135,000 tokens across the tool-based
+  variants) sits right around the 100,000-token minimum threshold, so
+  whether it triggers is inconsistent run-to-run rather than reliably
+  yes or no -- an honest finding in itself, not a gap in the measurement.
 
 ### 6. Dependency-graph summarization
 Replace raw file dumps with a compressed call/dependency graph (which
